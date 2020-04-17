@@ -3,8 +3,8 @@ const DEFAULT_OPTIONS = {
 };
 
 const NATIVE_METHODS = {
-  forEach: "forEach",
-  each: "forEach",
+  // forEach: "forEach",
+  // each: "forEach",
   map: "map",
   collect: "map",
   filter: "filter",
@@ -13,21 +13,21 @@ const NATIVE_METHODS = {
   some: "some",
   find: "find",
   detect: "find",
-  contains: "includes",
+  // contains: "includes",
   reduce: "reduce",
   inject: "reduce",
   indexOf: "indexOf",
   lastIndexOf: "lastIndexOf",
-  first: (j, identifier) => j.memberExpression(identifier, j.literal(0)),
-  last: (j, identifier) =>
-    j.memberExpression(
-      identifier,
-      j.binaryExpression(
-        "-",
-        j.memberExpression(identifier, j.identifier("length")),
-        j.literal(1)
-      )
-    ),
+  // first: (j, identifier) => j.memberExpression(identifier, j.literal(0)),
+  // last: (j, identifier) =>
+  //   j.memberExpression(
+  //     identifier,
+  //     j.binaryExpression(
+  //       "-",
+  //       j.memberExpression(identifier, j.identifier("length")),
+  //       j.literal(1)
+  //     )
+  //   ),
 };
 
 /**
