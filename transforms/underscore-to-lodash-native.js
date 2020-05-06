@@ -72,16 +72,17 @@ module.exports = function (fileInfo, { jscodeshift: j }, argOptions) {
     .forEach(transformExpression(j, options));
 
   ast // const _ = require('underscore')
-    .find(j.VariableDeclaration, isUnderscoreRequire)
-    .forEach(transformRequire(j, options));
-
-  ast // const _ = require('lodash')
-    .find(j.VariableDeclaration, isLodashRequire)
+    .find(j.CallExpression)
     .forEach(transformRequire(j, options));
 
   ast // import _ from 'underscore'
     .find(j.ImportDeclaration, isUnderscoreImport)
     .forEach(transformImport(j, options));
+  /*
+  ast // const _ = require('lodash')
+    .find(j.VariableDeclaration, isLodashRequire)
+    .forEach(transformRequire(j, options));
+
 
   ast // import _ from 'lodash'
     .find(j.ImportDeclaration, isLodashImport)
@@ -89,6 +90,7 @@ module.exports = function (fileInfo, { jscodeshift: j }, argOptions) {
 
   // Restore opening comments/position
   Object.assign(ast.find(j.Program).get("body", 0).node, { comments, loc });
+*/
 
   return ast.toSource({
     arrowParensAlways: true,
@@ -191,59 +193,17 @@ function transformUnderscoreMethod(j, ast) {
     ast.node.callee.property.name
   );
 
-  if (methodName === "extend") {
-    // This transforms e.g. `_.extend(result, metadata);` => `result = { ...result, ...metadata };`
-    j(ast).replaceWith(
-      j.assignmentExpression(
-        "=",
-        j.identifier(ast.value.arguments[0].name),
-        j.objectExpression(
-          ast.value.arguments.reduce(
-            (allProperties, { comments, ...argument }) => {
-              if (argument.type === "ObjectExpression") {
-                const { properties } = argument;
-                // Copy comments.
-                if (properties.length > 0 && comments && comments.length > 0) {
-                  properties[0].comments = [
-                    ...(properties[0].comments || []),
-                    ...(comments || []),
-                  ];
-                }
-                return [...allProperties, ...properties];
-              }
-
-              return [
-                ...allProperties,
-                { ...j.spreadProperty(argument), comments },
-              ];
-            },
-            []
-          )
-        )
-      )
-    );
-  } else {
     j.__methods[methodName] = true;
-    j(ast).replaceWith(
-      j.callExpression(j.identifier(methodName), ast.node.arguments)
-    );
-  }
 }
 
 function transformRequire(j, options) {
-  const imports = Object.keys(j.__methods);
-  return (ast) => {
-    if (imports.length === 0) {
-      j(ast).remove();
-    } else if (options["split-imports"]) {
-      j(ast).replaceWith(buildSplitImports(j, imports));
-    } else {
-      j(ast).replaceWith(
-        j.importDeclaration(
-          getImportSpecifiers(j, imports),
-          j.literal("lodash")
-        )
-      );
+  return (path) => {
+    if (
+      path.value.callee.name === "require" &&
+      path.value.arguments[0].type === "Literal" &&
+      path.value.arguments[0].value === "underscore"
+    ) {
+      path.value.arguments[0].value = "lodash";
     }
   };
 }
@@ -254,10 +214,6 @@ function transformImport(j, options) {
     ast.node.source = j.literal("lodash");
     if (imports.length === 0) {
       j(ast).remove();
-    } else if (options["split-imports"]) {
-      j(ast).replaceWith(buildSplitImports(j, imports));
-    } else {
-      ast.node.specifiers = getImportSpecifiers(j, imports);
     }
   };
 }
