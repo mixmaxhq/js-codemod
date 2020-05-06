@@ -173,7 +173,7 @@ function transformNativeMethod(j, ast) {
   );
 }
 
-function remapMethodNameIfNoDirectMatch(methodName) {
+function remapMethodNameIfNoDirectMatch(methodName, args) {
   //JAH TODO: go look at notes on .compact from dm w/ Jane
 
   switch (methodName) {
@@ -201,6 +201,11 @@ function remapMethodNameIfNoDirectMatch(methodName) {
     case "mapObject":
       return "mapValues";
     // Underscore _.max combines Lodash _.max & _.maxBy
+    case "max":
+      // We need to fork the behavior of any 'max' we find based on arg count, because lodash splits into max and maxBy
+      // We hit this case, but then max doesnt turn into maxBy. Josh has a theory that the cache is being built up, but when it looks for maxBy in the file, it cant find it, so does nothing
+      // where does this cache actually get used for transforms, or how mechanically do the transforms happen again? look into this next time!
+      return args.length === 1 ? "max" : "maxBy";
     // We will have to figure out argument count and choose max or maxBy accordingly
     // Underscore _.min combines Lodash _.min & _.minBy
     // same tbh
@@ -245,10 +250,12 @@ function transformUnderscoreMethod(j, ast) {
   // Replaces methodName with the corresponding lodash function if a direct mapping does not exist.
   // We may need to get more clever than this if signatures/other logic also need to change
   const methodName = remapMethodNameIfNoDirectMatch(
-    ast.node.callee.property.name
+    ast.node.callee.property.name,
+    ast.node.arguments
   );
 
   j.__methods[methodName] = true;
+  console.log("hey heres the cache", j.__methods);
 }
 
 function transformRequire(j, options) {
@@ -273,17 +280,17 @@ function transformImport(j, options) {
   };
 }
 
-function buildSplitImports(j, imports) {
-  return imports.map((name) => {
-    return j.importDeclaration(
-      [j.importDefaultSpecifier(j.identifier(name))],
-      j.literal(`lodash/${name}`)
-    );
-  });
-}
+// function buildSplitImports(j, imports) {
+//   return imports.map((name) => {
+//     return j.importDeclaration(
+//       [j.importDefaultSpecifier(j.identifier(name))],
+//       j.literal(`lodash/${name}`)
+//     );
+//   });
+// }
 
-function getImportSpecifiers(j, imports) {
-  return imports.map((name) => {
-    return j.importSpecifier(j.identifier(name));
-  });
-}
+// function getImportSpecifiers(j, imports) {
+//   return imports.map((name) => {
+//     return j.importSpecifier(j.identifier(name));
+//   });
+// }
