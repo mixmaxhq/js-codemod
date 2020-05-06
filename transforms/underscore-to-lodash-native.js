@@ -2,6 +2,21 @@ const DEFAULT_OPTIONS = {
   "split-imports": false,
 };
 
+/*
+THINGS WE WANT TO UPDATE:
+
+native includes vs _.contains
+[0] vs first (dont use [0])
+dont import {extend} etc
+unique -> uniq
+dont do _each -> native foreach
+first -> head
+template sendTrialExpiringEmailsToAdmins.js
+
+
+https://github.com/lodash/lodash/wiki/Migrating
+*/
+
 const NATIVE_METHODS = {
   // forEach: "forEach",
   // each: "forEach",
@@ -157,6 +172,8 @@ function transformNativeMethod(j, ast) {
 }
 
 function remapMethodNameIfNoDirectMatch(methodName) {
+  //JAH TODO: go look at notes on .compact from dm w/ Jane
+
   switch (methodName) {
     case "findWhere":
       return "find";
