@@ -173,6 +173,18 @@ function transformNativeMethod(j, ast) {
   );
 }
 
+function remapMethodFunctionality(j, ast) {
+  const methodName = ast.node.callee.property.name;
+
+  switch (methodName) {
+    case "flatten":
+      // (shallow) flatten would have `true` as the second param since that functionality isn't the default in underscore
+      // we need to remove it!
+      ast.node.arguments = [ast.node.arguments[0]];
+      return;
+  }
+}
+
 function remapMethodNameIfNoDirectMatch(methodName, args) {
   //JAH TODO: go look at notes on .compact from dm w/ Jane
 
@@ -189,7 +201,11 @@ function remapMethodNameIfNoDirectMatch(methodName, args) {
     // Underscore _.escape escapes backtick characters ('`'), while Lodash does not
     case "findWhere":
       return "find";
-    // Underscore _.flatten is deep by default while Lodash is shallow
+    case "flatten":
+      // if flatten was called with shallow=true in underscore, call default (shallow) flatten in lodash, otherwise, call flattenDeep
+      return args.length === 2 && args[1].value === true
+        ? "flatten"
+        : "flattenDeep";
     // Underscore _.groupBy's iteratee receives the arguments value, indexNumber, and originalCollection, while Lodash _.groupBy's iteratee receives only the argument value
 
     // Underscore _.indexOf with 3rd parameter undefined is Lodash _.indexOf
@@ -256,6 +272,10 @@ function transformUnderscoreMethod(j, ast) {
   if (methodName !== remappedMethodName) {
     ast.node.callee.property.name = remappedMethodName;
   }
+
+  //oof, just obfuscating a bunch of AST changes inside of this. Can we architect better later?
+  remapMethodFunctionality(j, ast);
+
   j.__methods[remappedMethodName] = true;
   //console.log("hey heres the cache", j.__methods);
 }
