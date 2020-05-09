@@ -247,15 +247,20 @@ function remapMethodNameIfNoDirectMatch(methodName, args) {
 }
 
 function transformUnderscoreMethod(j, ast) {
+  const methodName = ast.node.callee.property.name;
+
   // Replaces methodName with the corresponding lodash function if a direct mapping does not exist.
   // We may need to get more clever than this if signatures/other logic also need to change
-  const methodName = remapMethodNameIfNoDirectMatch(
-    ast.node.callee.property.name,
-    ast.node.arguments
+  const remappedMethodName = remapMethodNameIfNoDirectMatch(
+    methodName,
+    ast.node.arguments //maybe run a remapMethodLogic method separately to fix other details besides name?
   );
 
-  j.__methods[methodName] = true;
-  console.log("hey heres the cache", j.__methods);
+  if (methodName !== remappedMethodName) {
+    ast.node.callee.property.name = remappedMethodName;
+  }
+  j.__methods[remappedMethodName] = true;
+  //console.log("hey heres the cache", j.__methods);
 }
 
 function transformRequire(j, options) {
@@ -272,6 +277,9 @@ function transformRequire(j, options) {
 
 function transformImport(j, options) {
   const imports = Object.keys(j.__methods);
+  imports.map((i) => {
+    console.log(`HEY LISTEN - we're transforming import for ${i}`);
+  });
   return (ast) => {
     ast.node.source = j.literal("lodash");
     if (imports.length === 0) {
