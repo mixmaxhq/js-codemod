@@ -200,31 +200,28 @@ function remapMethodNameIfNoDirectMatch(methodName, args) {
       return "invokeMap";
     case "mapObject":
       return "mapValues";
-    // Underscore _.max combines Lodash _.max & _.maxBy
     case "max":
       // We need to fork the behavior of any 'max' we find based on arg count, because lodash splits into max and maxBy
-      // We hit this case, but then max doesnt turn into maxBy. Josh has a theory that the cache is being built up, but when it looks for maxBy in the file, it cant find it, so does nothing
-      // where does this cache actually get used for transforms, or how mechanically do the transforms happen again? look into this next time!
       return args.length === 1 ? "max" : "maxBy";
-    // We will have to figure out argument count and choose max or maxBy accordingly
-    // Underscore _.min combines Lodash _.min & _.minBy
-    // same tbh
+    case "min":
+      return args.length === 1 ? "min" : "minBy";
     case "invoke":
       return "invokeMap";
     case "mapObject":
       return "mapValues";
-    // Underscore _.sample combines Lodash _.sample & _.sampleSize
+    case "sample":
+      return args.length === 1 ? "sample" : "sampleSize";
+
     // Underscore _.object combines Lodash _.fromPairs and _.zipObject
     // Underscore _.omit by a predicate is Lodash _.omitBy
-    case "omit":
-      return "omitBy";
     case "pairs":
       return "toPairs";
     case "pick":
       return "pickBy";
     case "pluck":
       return "map";
-    // Underscore _.uniq by an iteratee is Lodash _.uniqBy. _.uniq with the isSorted parameter = true is Lodash _.sortedUniq (or Lodash _.sortedUniqBy when using an iteree).
+    case "uniq":
+      return args.length === 1 ? "uniq" : "uniqBy";
     case "where":
       return "filter";
     // Underscore _.isFinite doesn’t align with Number.isFinite
