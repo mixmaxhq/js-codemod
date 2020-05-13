@@ -2,21 +2,7 @@ const DEFAULT_OPTIONS = {
   "split-imports": false,
 };
 
-/*
-THINGS WE WANT TO UPDATE:
-
-native includes vs _.contains
-[0] vs first (dont use [0])
-dont import {extend} etc
-unique -> uniq
-dont do _each -> native foreach
-first -> head
-template sendTrialExpiringEmailsToAdmins.js
-
-
-https://github.com/lodash/lodash/wiki/Migrating
-*/
-
+// commented out methods we are not going to convert to native
 const NATIVE_METHODS = {
   // forEach: "forEach",
   // each: "forEach",
@@ -46,24 +32,15 @@ const NATIVE_METHODS = {
 };
 
 /**
- * This codemod does a few different things.
- * 1. Convert all underscore imports/requires to lodash imports
- *    const _ = require('underscore') -> import _ from 'lodash'
- * 2. Remove native equivalents
- *    _.forEach(array, fn) -> array.forEach(fn)
- * 3. Remove unused imports after #2
- * 4. Use partial imports from lodash to allow tree-shaking
- *    import _ from 'lodash' -> import {find} from 'lodash'
- *
- * Issues:
- * 1. Does not check for variables with same name in scope
- * 2. Knows nothing of types, so objects using _ methods will break
+ * This codemod:
+ * 1. Converts all underscore imports/requires to lodash imports/requires
+ * 2. Removes some native equivalents
+ *    _.map(array, fn) -> array.map(fn)
  */
-module.exports = function (fileInfo, { jscodeshift: j }, argOptions) {
+module.exports = function(fileInfo, { jscodeshift: j }, argOptions) {
   const options = Object.assign({}, DEFAULT_OPTIONS, argOptions);
   const ast = j(fileInfo.source);
-  // Cache opening comments/position
-  const { comments, loc } = ast.find(j.Program).get("body", 0).node;
+
   // Cache of underscore methods used
   j.__methods = {};
 
@@ -78,19 +55,6 @@ module.exports = function (fileInfo, { jscodeshift: j }, argOptions) {
   ast // import _ from 'underscore'
     .find(j.ImportDeclaration, isUnderscoreImport)
     .forEach(transformImport(j, options));
-  /*
-  ast // const _ = require('lodash')
-    .find(j.VariableDeclaration, isLodashRequire)
-    .forEach(transformRequire(j, options));
-
-
-  ast // import _ from 'lodash'
-    .find(j.ImportDeclaration, isLodashImport)
-    .forEach(transformImport(j, options));
-
-  // Restore opening comments/position
-  Object.assign(ast.find(j.Program).get("body", 0).node, { comments, loc });
-*/
 
   return ast.toSource({
     arrowParensAlways: true,
@@ -107,37 +71,12 @@ function isUnderscoreExpression(node) {
   );
 }
 
-function isRequire(node, required) {
-  return (
-    node.type === "VariableDeclaration" &&
-    node.declarations.length > 0 &&
-    node.declarations[0].type === "VariableDeclarator" &&
-    node.declarations[0].init &&
-    node.declarations[0].init.type === "CallExpression" &&
-    node.declarations[0].init.callee &&
-    node.declarations[0].init.callee.name === "require" &&
-    node.declarations[0].init.arguments[0].value === required
-  );
-}
-
-function isUnderscoreRequire(node) {
-  return isRequire(node, "underscore");
-}
-
-function isLodashRequire(node) {
-  return isRequire(node, "lodash");
-}
-
 function isImport(node, imported) {
   return node.type === "ImportDeclaration" && node.source.value === imported;
 }
 
 function isUnderscoreImport(node) {
   return isImport(node, "underscore");
-}
-
-function isLodashImport(node) {
-  return isImport(node, "lodash");
 }
 
 function transformExpression(j, options) {
@@ -186,13 +125,16 @@ function remapMethodFunctionality(j, ast) {
 }
 
 function remapMethodNameIfNoDirectMatch(methodName, args) {
-  //JAH TODO: go look at notes on .compact from dm w/ Jane
+  // TODO(jane+josh): commented out cases without notes
 
+  // lodash docs for underscore => lodash mappings: https://github.com/lodash/lodash/wiki/Migrating
   switch (methodName) {
     case "any":
       return "some";
     case "all":
       return "every";
+    // case "compact":
+    // we don't use the second argument so we don't need to remap here
     case "compose":
       return "flowRight";
     case "contains":
@@ -207,7 +149,6 @@ function remapMethodNameIfNoDirectMatch(methodName, args) {
         ? "flatten"
         : "flattenDeep";
     // Underscore _.groupBy's iteratee receives the arguments value, indexNumber, and originalCollection, while Lodash _.groupBy's iteratee receives only the argument value
-
     // Underscore _.indexOf with 3rd parameter undefined is Lodash _.indexOf
     // Underscore _.indexOf with 3rd parameter true is Lodash _.sortedIndexOf
     case "indexBy":
@@ -227,7 +168,6 @@ function remapMethodNameIfNoDirectMatch(methodName, args) {
       return "mapValues";
     case "sample":
       return args.length === 1 ? "sample" : "sampleSize";
-
     // Underscore _.object combines Lodash _.fromPairs and _.zipObject
     // Underscore _.omit by a predicate is Lodash _.omitBy
     case "pairs":
@@ -273,11 +213,10 @@ function transformUnderscoreMethod(j, ast) {
     ast.node.callee.property.name = remappedMethodName;
   }
 
-  //oof, just obfuscating a bunch of AST changes inside of this. Can we architect better later?
+  // this function mutates the AST for more complex cases
   remapMethodFunctionality(j, ast);
 
   j.__methods[remappedMethodName] = true;
-  //console.log("hey heres the cache", j.__methods);
 }
 
 function transformRequire(j, options) {
@@ -304,18 +243,3 @@ function transformImport(j, options) {
     }
   };
 }
-
-// function buildSplitImports(j, imports) {
-//   return imports.map((name) => {
-//     return j.importDeclaration(
-//       [j.importDefaultSpecifier(j.identifier(name))],
-//       j.literal(`lodash/${name}`)
-//     );
-//   });
-// }
-
-// function getImportSpecifiers(j, imports) {
-//   return imports.map((name) => {
-//     return j.importSpecifier(j.identifier(name));
-//   });
-// }
