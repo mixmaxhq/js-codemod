@@ -233,9 +233,6 @@ function transformRequire(j, options) {
 
 function transformImport(j, options) {
   const imports = Object.keys(j.__methods);
-  imports.map((i) => {
-    console.log(`HEY LISTEN - we're transforming import for ${i}`);
-  });
   return (ast) => {
     ast.node.source = j.literal("lodash");
     if (imports.length === 0) {
