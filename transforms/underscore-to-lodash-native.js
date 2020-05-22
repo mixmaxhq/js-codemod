@@ -1,3 +1,4 @@
+/* eslint-disable quotes */
 const DEFAULT_OPTIONS = {
   "split-imports": false,
 };
@@ -112,6 +113,7 @@ function transformNativeMethod(j, ast) {
   );
 }
 
+// TODO(jane+josh) rename?
 function remapMethodFunctionality(j, ast) {
   const methodName = ast.node.callee.property.name;
 
@@ -125,9 +127,15 @@ function remapMethodFunctionality(j, ast) {
 }
 
 function remapMethodNameIfNoDirectMatch(methodName, args) {
+  // TODO skip publication-client/src/primus.js
+
+  // TODO check for third argument `context` for basically underscore functions
+  // Lodash doesn’t support a context argument for many methods in favor of _.bind
+
   // TODO(jane+josh): commented out cases without notes
 
   // lodash docs for underscore => lodash mappings: https://github.com/lodash/lodash/wiki/Migrating
+  // Lodash supports implicit chaining, lazy chaining, & shortcut fusion
   switch (methodName) {
     case "any":
       return "some";
@@ -139,8 +147,7 @@ function remapMethodNameIfNoDirectMatch(methodName, args) {
       return "flowRight";
     case "contains":
       return "includes";
-    // Underscore _.each doesn’t allow exiting by returning false is Lodash _.forEach
-    // Underscore _.escape escapes backtick characters ('`'), while Lodash does not
+    // TODO Underscore _.escape escapes backtick characters ('`'), while Lodash does not
     case "findWhere":
       return "find";
     case "flatten":
@@ -148,9 +155,7 @@ function remapMethodNameIfNoDirectMatch(methodName, args) {
       return args.length === 2 && args[1].value === true
         ? "flatten"
         : "flattenDeep";
-    // Underscore _.groupBy's iteratee receives the arguments value, indexNumber, and originalCollection, while Lodash _.groupBy's iteratee receives only the argument value
-    // Underscore _.indexOf with 3rd parameter undefined is Lodash _.indexOf
-    // Underscore _.indexOf with 3rd parameter true is Lodash _.sortedIndexOf
+    // TODO(josh) Underscore _.groupBy's iteratee receives the arguments value, indexNumber, and originalCollection, while Lodash _.groupBy's iteratee receives only the argument value
     case "indexBy":
       return "keyBy";
     case "invoke":
@@ -162,14 +167,14 @@ function remapMethodNameIfNoDirectMatch(methodName, args) {
       return args.length === 1 ? "max" : "maxBy";
     case "min":
       return args.length === 1 ? "min" : "minBy";
-    case "invoke":
-      return "invokeMap";
-    case "mapObject":
-      return "mapValues";
     case "sample":
       return args.length === 1 ? "sample" : "sampleSize";
-    // Underscore _.object combines Lodash _.fromPairs and _.zipObject
+    case "object":
+      return args.length === 1 ? "fromPairs" : "zipObject";
     // Underscore _.omit by a predicate is Lodash _.omitBy
+    case "omit":
+    // TODO string instead of a function
+    // return  ? "omit" : "omitBy";
     case "pairs":
       return "toPairs";
     case "pick":
@@ -180,20 +185,20 @@ function remapMethodNameIfNoDirectMatch(methodName, args) {
       return args.length === 1 ? "uniq" : "uniqBy";
     case "where":
       return "filter";
-    // Underscore _.isFinite doesn’t align with Number.isFinite
+
+    // TODO Underscore _.isFinite doesn’t align with Number.isFinite
     // (e.g. _.isFinite('1') returns true in Underscore but false in Lodash)
-    // Underscore _.matches shorthand doesn’t support deep comparisons
-    // (e.g. _.filter(objects, { 'a': { 'b': 'c' } }))
-    // Underscore ≥ 1.7 & Lodash _.template syntax is
-    // _.template(string, option)(data)
-    // Lodash _.memoize caches are Map like objects
+    // check our repos using underscore, this is a special case
 
-    // Lodash doesn’t support a context argument for many methods in favor of _.bind
-    // Lodash supports implicit chaining, lazy chaining, & shortcut fusion
+    case "head":
+      return args.length === 1 ? "head" : "take";
+    case "last":
+      return args.length === 1 ? "last" : "takeRight";
+    case "rest":
+      return args.length === 1 ? "rest" : "drop";
+    case "initial":
+      return args.length === 1 ? "initial" : "dropRight";
 
-    // Lodash split its overloaded _.head, _.last, _.rest, & _.initial out into
-    // _.take, _.takeRight, _.drop, & _.dropRight
-    // (i.e. _.head(array, 2) in Underscore is _.take(array, 2) in Lodash)
     default:
       return methodName;
   }
