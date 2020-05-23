@@ -38,7 +38,7 @@ const NATIVE_METHODS = {
  * 2. Removes some native equivalents
  *    _.map(array, fn) -> array.map(fn)
  */
-module.exports = function(fileInfo, { jscodeshift: j }, argOptions) {
+module.exports = function (fileInfo, { jscodeshift: j }, argOptions) {
   const options = Object.assign({}, DEFAULT_OPTIONS, argOptions);
   const ast = j(fileInfo.source);
 
@@ -126,14 +126,91 @@ function remapMethodFunctionality(j, ast) {
   }
 }
 
+function commentAnyUsageOfUnderscoreContext(j, ast) {
+  // Lodash doesn't support the context param in any methods. Comment these with a warning!
+  const methodsToCheckSecondParam = ["iteratee"];
+  const methodsToCheckThirdParam = [
+    "each",
+    "reject",
+    "max",
+    "min",
+    "sortBy",
+    "groupBy",
+    "indexBy",
+    "countBy",
+    "findIndex",
+    "findLastIndex",
+    "mapObject",
+    "findKey",
+    "times",
+  ];
+  // we change map, filter, every, some, find to native, so skip.
+  const methodsToCheckFourthParam = ["reduceRight", "sortedIndex"]; //we change reduce to native, so skip.
+
+  const methodName = ast.node.callee.property.name;
+  const nodeArgs = ast.node.arguments;
+  console.log(`testing ${methodName} with ${nodeArgs}`);
+
+  // TODO: refactor to make this read a little nicer?
+  commentUnderscoreContextUsageAtParamNum(
+    nodeArgs,
+    methodsToCheckSecondParam,
+    2,
+    methodName
+  );
+  commentUnderscoreContextUsageAtParamNum(
+    nodeArgs,
+    methodsToCheckThirdParam,
+    3,
+    methodName
+  );
+  commentUnderscoreContextUsageAtParamNum(
+    nodeArgs,
+    methodsToCheckFourthParam,
+    4,
+    methodName
+  );
+}
+
+function commentUnderscoreContextUsageAtParamNum(
+  nodeArgs,
+  methodNameList,
+  paramNum,
+  methodName
+) {
+  if (methodNameList.includes(methodName)) {
+    console.log(
+      `testing ${methodName} is in list, testing ${nodeArgs} length of ${nodeArgs.length} >= ${paramNum}`
+    );
+
+    // second argument is a function, how many arguments does it have?
+    if (nodeArgs && nodeArgs.length >= paramNum) {
+      const thing = nodeArgs[paramNum - 1];
+      console.log({ thing });
+      nodeArgs[paramNum - 1].value +=
+        "/*TODO: THIS USES UNDERSCORE CONTEXT -- lodash does not support this syntax.*/";
+    }
+  } else {
+    //  console.log(`testing ${methodName} not included in ${methodNameList}`);
+  }
+}
+
+function commentGroupByIterateeUnsupportedUsage(j, ast) {
+  const methodName = ast.node.callee.property.name;
+  if (methodName === "groupBy") {
+    const secondArg = ast.node.arguments[1];
+    // second argument is a function, how many arguments does it have?
+    if (secondArg && secondArg.params && secondArg.params.length > 1) {
+      // Underscore _.groupBy's iteratee receives the arguments value, indexNumber, and originalCollection,
+      // while Lodash _.groupBy's iteratee receives only the argument value
+      secondArg.params[1].name +=
+        "/*TODO: lodash groupBy DOES NOT SUPPORT indexNumber/originalCollection arguments in iteratee!*/";
+    }
+  }
+}
+
 function remapMethodNameIfNoDirectMatch(methodName, args) {
   // TODO skip publication-client/src/primus.js
-
-  // TODO check for third argument `context` for basically underscore functions
-  // Lodash doesn’t support a context argument for many methods in favor of _.bind
-
-  // TODO(jane+josh): commented out cases without notes
-
   // lodash docs for underscore => lodash mappings: https://github.com/lodash/lodash/wiki/Migrating
   // Lodash supports implicit chaining, lazy chaining, & shortcut fusion
   switch (methodName) {
@@ -142,12 +219,15 @@ function remapMethodNameIfNoDirectMatch(methodName, args) {
     case "all":
       return "every";
     // case "compact":
+    // this has a special case for 2nd arg, however,
     // we don't use the second argument so we don't need to remap here
     case "compose":
       return "flowRight";
     case "contains":
       return "includes";
     // TODO Underscore _.escape escapes backtick characters ('`'), while Lodash does not
+    // we haven't proven that we *don't* use this, but per slack we think we don't
+    // BE VIGILANT HERE -- do we want to comment this one with a warning as well?
     case "findWhere":
       return "find";
     case "flatten":
@@ -155,7 +235,9 @@ function remapMethodNameIfNoDirectMatch(methodName, args) {
       return args.length === 2 && args[1].value === true
         ? "flatten"
         : "flattenDeep";
-    // TODO(josh) Underscore _.groupBy's iteratee receives the arguments value, indexNumber, and originalCollection, while Lodash _.groupBy's iteratee receives only the argument value
+
+    // TODO(josh) Underscore _.groupBy's iteratee receives the arguments value, indexNumber, and originalCollection,
+    // while Lodash _.groupBy's iteratee receives only the argument value
     case "indexBy":
       return "keyBy";
     case "invoke":
@@ -221,6 +303,8 @@ function transformUnderscoreMethod(j, ast) {
   // this function mutates the AST for more complex cases
   remapMethodFunctionality(j, ast);
 
+  commentAnyUsageOfUnderscoreContext(j, ast);
+  commentGroupByIterateeUnsupportedUsage(j, ast);
   j.__methods[remappedMethodName] = true;
 }
 
