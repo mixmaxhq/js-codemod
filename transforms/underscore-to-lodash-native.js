@@ -208,6 +208,16 @@ function commentGroupByIterateeUnsupportedUsage(j, ast) {
     }
   }
 }
+function commentIsFiniteUsage(j, ast) {
+  // Underscore _.isFinite doesn’t align with Number.isFinite
+  // (e.g. _.isFinite('1') returns true in Underscore but false in Lodash)
+  // check our repos using underscore, this is a special case
+  const methodName = ast.node.callee.property.name;
+  if (methodName === "isFinite") {
+    ast.node.callee.property.name +=
+      "/*TODO: lodash isFinite DOES NOT ALIGN WITH underscore isFinite. See behavior of _.isFinite('1')*/";
+  }
+}
 
 function remapMethodNameIfNoDirectMatch(methodName, args) {
   // TODO skip publication-client/src/primus.js
@@ -235,9 +245,6 @@ function remapMethodNameIfNoDirectMatch(methodName, args) {
       return args.length === 2 && args[1].value === true
         ? "flatten"
         : "flattenDeep";
-
-    // TODO(josh) Underscore _.groupBy's iteratee receives the arguments value, indexNumber, and originalCollection,
-    // while Lodash _.groupBy's iteratee receives only the argument value
     case "indexBy":
       return "keyBy";
     case "invoke":
@@ -253,10 +260,12 @@ function remapMethodNameIfNoDirectMatch(methodName, args) {
       return args.length === 1 ? "sample" : "sampleSize";
     case "object":
       return args.length === 1 ? "fromPairs" : "zipObject";
-    // Underscore _.omit by a predicate is Lodash _.omitBy
     case "omit":
-    // TODO string instead of a function
-    // return  ? "omit" : "omitBy";
+      const isPredicate =
+        args[1] &&
+        (args[1].type === "ArrowFunctionExpression" ||
+          args[1].type === "FunctionExpression");
+      return isPredicate ? "omitBy" : "omit";
     case "pairs":
       return "toPairs";
     case "pick":
@@ -267,11 +276,6 @@ function remapMethodNameIfNoDirectMatch(methodName, args) {
       return args.length === 1 ? "uniq" : "uniqBy";
     case "where":
       return "filter";
-
-    // TODO Underscore _.isFinite doesn’t align with Number.isFinite
-    // (e.g. _.isFinite('1') returns true in Underscore but false in Lodash)
-    // check our repos using underscore, this is a special case
-
     case "head":
       return args.length === 1 ? "head" : "take";
     case "last":
@@ -305,6 +309,8 @@ function transformUnderscoreMethod(j, ast) {
 
   commentAnyUsageOfUnderscoreContext(j, ast);
   commentGroupByIterateeUnsupportedUsage(j, ast);
+  commentIsFiniteUsage(j, ast);
+
   j.__methods[remappedMethodName] = true;
 }
 
