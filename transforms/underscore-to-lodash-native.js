@@ -20,7 +20,7 @@ const NATIVE_METHODS = {
   inject: "reduce",
   indexOf: "indexOf",
   lastIndexOf: "lastIndexOf",
-  // first: (j, identifier) => j.memberExpression(identifier, j.literal(0)),
+  first: (j, identifier) => j.memberExpression(identifier, j.literal(0)),
   // last: (j, identifier) =>
   //   j.memberExpression(
   //     identifier,
@@ -38,7 +38,7 @@ const NATIVE_METHODS = {
  * 2. Removes some native equivalents
  *    _.map(array, fn) -> array.map(fn)
  */
-module.exports = function (fileInfo, { jscodeshift: j }, argOptions) {
+module.exports = function(fileInfo, { jscodeshift: j }, argOptions) {
   const options = Object.assign({}, DEFAULT_OPTIONS, argOptions);
   const ast = j(fileInfo.source);
 
@@ -149,7 +149,6 @@ function commentAnyUsageOfUnderscoreContext(j, ast) {
 
   const methodName = ast.node.callee.property.name;
   const nodeArgs = ast.node.arguments;
-  console.log(`testing ${methodName} with ${nodeArgs}`);
 
   // TODO: refactor to make this read a little nicer?
   commentUnderscoreContextUsageAtParamNum(
@@ -179,10 +178,6 @@ function commentUnderscoreContextUsageAtParamNum(
   methodName
 ) {
   if (methodNameList.includes(methodName)) {
-    console.log(
-      `testing ${methodName} is in list, testing ${nodeArgs} length of ${nodeArgs.length} >= ${paramNum}`
-    );
-
     // second argument is a function, how many arguments does it have?
     if (nodeArgs && nodeArgs.length >= paramNum) {
       const thing = nodeArgs[paramNum - 1];
@@ -191,7 +186,7 @@ function commentUnderscoreContextUsageAtParamNum(
         "/*TODO: THIS USES UNDERSCORE CONTEXT -- lodash does not support this syntax.*/";
     }
   } else {
-    //  console.log(`testing ${methodName} not included in ${methodNameList}`);
+    console.log({ methodName });
   }
 }
 
@@ -208,6 +203,7 @@ function commentGroupByIterateeUnsupportedUsage(j, ast) {
     }
   }
 }
+
 function commentIsFiniteUsage(j, ast) {
   // Underscore _.isFinite doesn’t align with Number.isFinite
   // (e.g. _.isFinite('1') returns true in Underscore but false in Lodash)
@@ -220,7 +216,8 @@ function commentIsFiniteUsage(j, ast) {
 }
 
 function remapMethodNameIfNoDirectMatch(methodName, args) {
-  // TODO skip publication-client/src/primus.js
+  // NOTE skip publication-client/src/primus.js
+
   // lodash docs for underscore => lodash mappings: https://github.com/lodash/lodash/wiki/Migrating
   // Lodash supports implicit chaining, lazy chaining, & shortcut fusion
   switch (methodName) {
@@ -268,8 +265,8 @@ function remapMethodNameIfNoDirectMatch(methodName, args) {
       return isPredicate ? "omitBy" : "omit";
     case "pairs":
       return "toPairs";
-    case "pick":
-      return "pickBy";
+    // case "pick":
+    // return "pickBy";
     case "pluck":
       return "map";
     case "uniq":
