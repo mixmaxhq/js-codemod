@@ -181,12 +181,9 @@ function commentUnderscoreContextUsageAtParamNum(
     // second argument is a function, how many arguments does it have?
     if (nodeArgs && nodeArgs.length >= paramNum) {
       const thing = nodeArgs[paramNum - 1];
-      console.log({ thing });
       nodeArgs[paramNum - 1].value +=
         "/*TODO: THIS USES UNDERSCORE CONTEXT -- lodash does not support this syntax.*/";
     }
-  } else {
-    console.log({ methodName });
   }
 }
 
